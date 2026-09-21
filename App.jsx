@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import GMap from './GMap';
 import HouseForm from './HouseForm';
 import Admin, { EVENTS } from './Admin';
+import { geocodeHouse, geocodeStreet } from '../lib/maps';
 
 const PUB = 'id,street_id,house_number,lat,lng,participation,start_time,end_time,message';
 const hhmm = t => (t ? String(t).slice(0, 5) : '');
@@ -94,13 +95,23 @@ export default function App() {
     if (num == null) return ss.map(s => ({ t: 'street', s, c: houses.filter(h => h.street_id === s.id).length }));
     return ss.map(s => ({ t: 'house', s, n: num, h: houses.find(h => h.street_id === s.id && h.house_number === num) }));
   }, [q, streets, houses]);
-  function go(r) {
+  async function go(r) {
     setQ('');
     if (r.t === 'street') {
       const hs = houses.filter(h => h.street_id === r.s.id);
-      if (!hs.length) { toast(`No pumpkins on ${r.s.name} yet.`); return; }
-      const b = new window.google.maps.LatLngBounds(); hs.forEach(h => b.extend({ lat: h.lat, lng: h.lng })); setFocus({ bounds: b, k: Date.now() });
-    } else if (r.h) { setSel(r.h.id); } else toast(`No pumpkin at ${r.n} ${r.s.name} yet.`);
+      if (hs.length) {
+        const b = new window.google.maps.LatLngBounds(); hs.forEach(h => b.extend({ lat: h.lat, lng: h.lng })); setFocus({ bounds: b, k: Date.now() });
+      } else {
+        const g = await geocodeStreet(r.s.name);
+        if (g) setFocus({ lat: g.lat, lng: g.lng, zoom: 17, k: Date.now() });
+        toast(`No pumpkins on ${r.s.name} yet.`);
+      }
+    } else if (r.h) { setSel(r.h.id); }
+    else {
+      const g = await geocodeHouse(r.n, r.s.name);
+      setFocus({ lat: g.lat, lng: g.lng, zoom: 19, k: Date.now() });
+      toast(`No pumpkin at ${r.n} ${r.s.name} yet.`);
+    }
   }
 
   /* actions */
