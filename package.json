@@ -2,7 +2,11 @@
   "name": "sitari-halloween",
   "version": "1.0.0",
   "private": true,
-  "scripts": { "dev": "next dev", "build": "next build", "start": "next start" },
+  "scripts": {
+    "dev": "next dev",
+    "build": "mkdir -p app components lib && mv -f layout.jsx page.jsx globals.css app/ && mv -f App.jsx Admin.jsx GMap.jsx HouseForm.jsx components/ && mv -f maps.js supabase.js lib/ && next build",
+    "start": "next start"
+  },
   "dependencies": {
     "@googlemaps/markerclusterer": "^2.5.3",
     "@supabase/supabase-js": "^2.45.0",
