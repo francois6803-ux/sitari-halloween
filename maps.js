@@ -6,6 +6,7 @@ export function loadMaps() {
   if (window.google && window.google.maps && window.google.maps.importLibrary) return Promise.resolve(window.google.maps);
   if (!HAS_KEY) return Promise.reject(new Error('no-key'));
   if (loader) return loader;
+  window.gm_authFailure = () => { window.__gmAuthFail = true; window.dispatchEvent(new Event('gm-auth-fail')); };
   loader = new Promise((resolve, reject) => {
     const s = document.createElement('script');
     s.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY}&loading=async&v=weekly`;
@@ -35,6 +36,7 @@ async function geocode(address, bias) {
     if (!r) return null;
     return { lat: r.geometry.location.lat(), lng: r.geometry.location.lng(), partial: !!r.partial_match };
   } catch (e) {
+    window.__geoErr = (e && (e.code || e.message)) || 'unknown';
     return null;
   }
 }

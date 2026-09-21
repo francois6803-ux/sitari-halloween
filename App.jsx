@@ -188,7 +188,7 @@ export default function App() {
           <div className="addr">{addr(selHouse)}</div>
           <div className="status">{selIsGhost ? '🟡 Pending approval' : stage === 'finished' ? '👻 Halloween 2026 has finished' : partLabel(selHouse.participation)}</div>
           {selIsGhost ? <div className="meta">Only you can see this pumpkin until an administrator approves it.</div>
-            : <div className="meta">🕔 {selHouse.start_time ? `${hhmm(selHouse.start_time)} – ${hhmm(selHouse.end_time)}` : 'Hours not specified.'}</div>}
+            : (selHouse.start_time ? <div className="meta">🕔 {hhmm(selHouse.start_time)} – {hhmm(selHouse.end_time)}</div> : null)}
           {selHouse.message && !selIsGhost && <div className="msg">“{selHouse.message}”</div>}
           <div className="acts">
             {selIsGhost ? <button className="btn pri" onClick={() => setSheet('my')}>MY HOUSE</button>
@@ -280,8 +280,8 @@ function MyHouse({ mine, addr, regOpen, onClose, onEdit, onRegister, onShow, onR
     <h2>{addr}</h2><div className="status" style={{ margin: '6px 0 10px' }}>{STATUS[mine.status]}</div>
     {mine.status === 'rejected' && <div className="note">An administrator couldn't approve this registration. You can edit it and it will be reviewed again.</div>}
     <div className="kv"><span>Visitors</span><span>{partLabel(mine.participation)}</span></div>
-    <div className="kv"><span>Hours</span><span>{mine.start_time ? `${hhmm(mine.start_time)} – ${hhmm(mine.end_time)}` : 'Hours not specified.'}</span></div>
-    <div className="kv"><span>Message</span><span>{mine.message || '—'}</span></div>
+    {mine.start_time && <div className="kv"><span>Hours</span><span>{hhmm(mine.start_time)} – {hhmm(mine.end_time)}</span></div>}
+    {mine.message && <div className="kv"><span>Message</span><span>{mine.message}</span></div>}
     {confirm ? (<div className="err warn"><b>Remove your Halloween house?</b>Your pumpkin will disappear from the public map.
       <div className="stack"><button className="btn sec" onClick={() => setConfirm(false)}>KEEP MY PUMPKIN</button><button className="btn danger" onClick={onRemove}>REMOVE HOUSE</button></div></div>) : (
       <div className="stack">

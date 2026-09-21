@@ -15,7 +15,7 @@ export default function HouseForm({ user, streets, house = null, admin = false, 
   const [f, setF] = useState({
     street_id: house?.street_id || '', number: house ? String(house.house_number) : '',
     lat: house?.lat ?? null, lng: house?.lng ?? null, confirmed: editing,
-    part: house?.participation || '', start: hhmm(house?.start_time), end: hhmm(house?.end_time),
+    part: house?.participation || 'welcome', start: hhmm(house?.start_time), end: hhmm(house?.end_time),
     message: house?.message || '', authorised: false, note
   });
   const [applied, setApplied] = useState({ street_id: house?.street_id || '', number: house ? String(house.house_number) : '' });
@@ -86,7 +86,7 @@ export default function HouseForm({ user, streets, house = null, admin = false, 
   }
 
   const dots = typeof step === 'number' ? (
-    <div className="dots" role="img" aria-label={`Step ${step} of 5`}>{[1, 2, 3, 4, 5].map(i => <i key={i} className={i <= step ? 'on' : ''} />)}</div>
+    <div className="dots" role="img" aria-label="Registration progress">{[1, 2, 5].map(i => <i key={i} className={i <= step ? 'on' : ''} />)}</div>
   ) : null;
   const Err = () => err ? <div className="err" role="alert"><b>{err.title}</b>{err.text}</div> : null;
 
@@ -106,7 +106,7 @@ export default function HouseForm({ user, streets, house = null, admin = false, 
       <div className="mini" style={{ height: 300 }}>
         <GMap mode="pick" pin={{ lat: f.lat, lng: f.lng }} onPin={onPin} zoom={19} />
       </div>
-      {manual && <div className="err warn"><b>We couldn't pin this address automatically</b>New addresses are sometimes missing from Google. Drag the pumpkin onto your house, then confirm. An administrator will check it.</div>}
+      {manual && <div className="err warn"><b>We couldn't pin this address automatically</b>New addresses are sometimes missing from Google. Drag the pumpkin onto your house, then confirm. An administrator will check it.{typeof window !== 'undefined' && window.__geoErr ? ` (Google said: ${window.__geoErr})` : ''}</div>}
       {adjusting && <p className="hint">Drag the pumpkin, or tap the map, to sit it exactly on your house.</p>}
       {f.confirmed ? <div className="ok">✅ Location confirmed</div> : null}
     </>
@@ -145,8 +145,8 @@ export default function HouseForm({ user, streets, house = null, admin = false, 
         <h2>Is this your house?</h2><p className="lead">{f.number} {streetName(f.street_id)}</p>
         {Location}<Err />
         <div className="stack">
-          {!f.confirmed && <button className="btn pri" onClick={() => { set('confirmed', true); setAdjusting(false); setStep(3); }}>{adjusting ? 'CONFIRM THIS LOCATION' : 'YES — THIS IS MY HOUSE'}</button>}
-          {f.confirmed && <button className="btn pri" onClick={() => setStep(3)}>NEXT</button>}
+          {!f.confirmed && <button className="btn pri" onClick={() => { set('confirmed', true); setAdjusting(false); setStep(5); }}>{adjusting ? 'CONFIRM THIS LOCATION' : 'YES — THIS IS MY HOUSE'}</button>}
+          {f.confirmed && <button className="btn pri" onClick={() => setStep(5)}>NEXT</button>}
           {!adjusting && <button className="btn sec" onClick={() => setAdjusting(true)}>ADJUST LOCATION</button>}
           <button className="btn ghost" onClick={() => setStep(1)}>← Back</button>
         </div>
@@ -167,13 +167,10 @@ export default function HouseForm({ user, streets, house = null, admin = false, 
         <div className="preview">
           <div className="ch"><span>🎃 HALLOWEEN HOUSE</span></div>
           <div className="addr">{f.number} {streetName(f.street_id)}</div>
-          <div className="status">{partLabel(f.part)}</div>
-          <div className="meta">🕔 {f.start && f.end ? `${f.start} – ${f.end}` : 'Hours not specified.'}</div>
-          {f.message && <div className="msg">“{f.message}”</div>}
         </div>
         <label className="chk"><input type="checkbox" checked={f.authorised} onChange={e => set('authorised', e.target.checked)} /> <span>I confirm I'm authorised to register this property, and I'm happy for this information to be shown publicly on the map.</span></label>
         <div className="note">An administrator checks your house before the pumpkin appears on the public map.</div><Err />
-        <div className="stack"><button className="btn pri" disabled={!f.authorised || busy} onClick={save}>{busy ? 'SUBMITTING…' : '🎃 SUBMIT MY HOUSE'}</button><button className="btn ghost" onClick={() => setStep(4)}>← Edit details</button></div>
+        <div className="stack"><button className="btn pri" disabled={!f.authorised || busy} onClick={save}>{busy ? 'SUBMITTING…' : '🎃 SUBMIT MY HOUSE'}</button><button className="btn ghost" onClick={() => setStep(2)}>← Back</button></div>
       </>)}
 
       {step === 'all' && (<>
@@ -185,7 +182,6 @@ export default function HouseForm({ user, streets, house = null, admin = false, 
           {Location}
           {!f.confirmed && <div className="err warn"><b>Location needs confirmation</b>We found the area, but we need you to confirm your exact house location.<div style={{ marginTop: 10 }}><button className="btn pri sm" onClick={() => set('confirmed', true)}>CONFIRM THIS LOCATION</button></div></div>}
         </div><div>
-          <label className="fld">Trick-or-treaters</label>{Part}{Extras}
           {admin ? (<><label className="fld" htmlFor="nt">Private admin note</label><textarea id="nt" className="inp" placeholder="Only administrators see this" value={f.note} onChange={e => set('note', e.target.value)} /></>)
             : <div className="note">Changing the address or location sends your house back for approval.</div>}
         </div></div>

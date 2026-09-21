@@ -59,6 +59,13 @@ export default function GMap({ houses = [], ghost = null, selectedId = null, onS
   const onSelRef = useRef(onSelect); onSelRef.current = onSelect;
 
   useEffect(() => {
+    const onAuth = () => setErr('auth');
+    window.addEventListener('gm-auth-fail', onAuth);
+    if (window.__gmAuthFail) setErr('auth');
+    return () => window.removeEventListener('gm-auth-fail', onAuth);
+  }, []);
+
+  useEffect(() => {
     let dead = false;
     (async () => {
       try {
@@ -135,7 +142,7 @@ export default function GMap({ houses = [], ghost = null, selectedId = null, onS
   if (err) return (
     <div className="nomap"><div>
       <div style={{ fontSize: 46 }}>🗺️</div>
-      <p style={{ marginTop: 8 }}>{err === 'no-key' ? 'The map is not connected yet (Google Maps key missing).' : 'The map could not load. Please refresh.'}</p>
+      <p style={{ marginTop: 8 }}>{err === 'no-key' ? 'The map is not connected yet (Google Maps key missing).' : err === 'auth' ? 'Google rejected the map key. In Google Cloud: turn on billing, enable Maps JavaScript API and Geocoding API, and allow this website in the key restrictions. (Details are in the browser console.)' : 'The map could not load. Please refresh.'}</p>
     </div></div>
   );
   return <div ref={box} className="gm" />;
