@@ -131,6 +131,8 @@ export default function App() {
     <div id="app" className={selHouse ? 'card-open' : ''}>
       <div id="sky" />
       <GMap houses={houses} ghost={ghost} selectedId={sel} onSelect={setSel} focus={focus} zoom={16} />
+      <Ambience />
+      <Splash />
 
       <div id="top" className="ui">
         <div className="title">SITARI</div>
@@ -281,4 +283,50 @@ function Report({ house, addr, onClose, onSend }) {
     <textarea id="rn" className="inp" maxLength={200} value={note} onChange={e => setNote(e.target.value)} />
     <div className="stack"><button className="btn pri" onClick={() => onSend(house, reason, note.trim())}>SEND REPORT</button><button className="btn ghost" onClick={onClose}>CANCEL</button></div>
   </>);
+}
+
+const BAT = '<svg viewBox="0 0 40 24"><path d="M20 12C14 2 6 2 0 8C5 8 7 10 9 14C11 11 14 11 16 14L20 20L24 14C26 11 29 11 31 14C33 10 35 8 40 8C34 2 26 2 20 12Z" fill="#07030f" stroke="#7b5cff" stroke-opacity=".5"/></svg>';
+
+/* Spooky atmosphere layered over the map. Never blocks taps. */
+function Ambience() {
+  const bats = useRef(null);
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const spawn = () => {
+      if (!bats.current) return;
+      const b = document.createElement('div'), d = 10 + Math.random() * 7;
+      b.className = 'bat';
+      b.style.cssText = `top:${(8 + Math.random() * 30).toFixed(0)}%;width:${(26 + Math.random() * 22).toFixed(0)}px;--dy:${(Math.random() * 140 - 70) | 0}px;animation-duration:${d}s`;
+      b.innerHTML = BAT; bats.current.appendChild(b); setTimeout(() => b.remove(), d * 1000 + 300);
+    };
+    const t0 = setTimeout(spawn, 3500), iv = setInterval(spawn, 12000);
+    return () => { clearTimeout(t0); clearInterval(iv); };
+  }, []);
+  return (
+    <>
+      <div className="vignette" />
+      <div className="fog" style={{ left: '-10%', top: '55%', width: '70%', height: '30%' }} />
+      <div className="fog" style={{ right: '-15%', top: '22%', width: '60%', height: '28%', animationDelay: '-12s' }} />
+      <div className="embers">{Array.from({ length: 14 }, (_, i) => (
+        <i key={i} className="ember" style={{ left: `${(i * 37) % 100}%`, animationDuration: `${9 + ((i * 7) % 9)}s`, animationDelay: `${(i * 5) % 10}s`, '--dx': `${((i * 53) % 120) - 60}px` }} />
+      ))}</div>
+      <div className="bats" ref={bats} />
+    </>
+  );
+}
+
+function Splash() {
+  const [phase, setPhase] = useState('off');
+  useEffect(() => {
+    try { if (sessionStorage.getItem('sitari-splash')) return; sessionStorage.setItem('sitari-splash', '1'); } catch (e) {}
+    setPhase('on');
+    const a = setTimeout(() => setPhase('out'), 2400), b = setTimeout(() => setPhase('off'), 3300);
+    return () => { clearTimeout(a); clearTimeout(b); };
+  }, []);
+  if (phase === 'off') return null;
+  return (
+    <div id="splash" className={phase === 'out' ? 'out' : ''} onClick={() => setPhase('off')}>
+      <div className="sp">🎃</div><h1>SITARI</h1><h2>HALLOWEEN 2026</h2><p>The neighbourhood is alive.</p>
+    </div>
+  );
 }
