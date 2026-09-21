@@ -69,7 +69,7 @@ export default function GMap({ houses = [], ghost = null, selectedId = null, onS
         if (dead) return;
         const map = new Map(box.current, {
           center: { lat: est.lat, lng: est.lng }, zoom, styles: SPOOKY,
-          mapTypeId: mode === 'pick' ? 'hybrid' : 'roadmap', backgroundColor: '#0a0620',
+          mapTypeId: 'hybrid', backgroundColor: '#0a0620',
           streetViewControl: false, fullscreenControl: false, clickableIcons: false, gestureHandling: 'greedy',
           mapTypeControlOptions: { position: window.google.maps.ControlPosition.LEFT_BOTTOM }
         });

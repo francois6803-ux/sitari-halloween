@@ -39,14 +39,14 @@ async function geocode(address, bias) {
   }
 }
 
-// Somerset West town centre, only used if Google cannot find the estate at all.
-const FALLBACK = { lat: -34.083, lng: 18.85 };
+// Approximate Macassar area, only used if Google cannot find the estate at all.
+const FALLBACK = { lat: -34.06, lng: 18.77 };
 
 let estatePromise;
 export function getEstateCenter() {
   if (!estatePromise) {
     estatePromise = (async () => {
-      const tries = ['Sitari Country Estate, Somerset West, South Africa', 'Sitari Country Estate Main Gatehouse, Van Riebeeck Road, Somerset West, South Africa'];
+      const tries = ['Sitari Country Estate, Macassar, Cape Town, South Africa', 'Sitari Country Estate Main Gate, R102, Macassar, Cape Town, South Africa'];
       for (const q of tries) { const r = await geocode(q); if (r && !r.partial) return r; }
       const any = await geocode(tries[0]);
       return any || FALLBACK;
@@ -60,9 +60,9 @@ export const ESTATE_RADIUS_M = 3500;
 export async function geocodeHouse(number, streetName) {
   const est = await getEstateCenter();
   const near = r => r && haversine(r, est) <= ESTATE_RADIUS_M;
-  const a = await geocode(`${number} ${streetName}, Sitari Country Estate, Somerset West`, est);
+  const a = await geocode(`${number} ${streetName}, Sitari Country Estate, Macassar, Cape Town`, est);
   if (near(a) && !a.partial) return { lat: a.lat, lng: a.lng, found: true };
-  const b = await geocode(`${streetName}, Sitari Country Estate, Somerset West`, est);
+  const b = await geocode(`${streetName}, Sitari Country Estate, Macassar, Cape Town`, est);
   if (near(b)) return { lat: b.lat, lng: b.lng, found: false };
   if (near(a)) return { lat: a.lat, lng: a.lng, found: false };
   return { lat: est.lat, lng: est.lng, found: false };
@@ -70,7 +70,7 @@ export async function geocodeHouse(number, streetName) {
 
 export async function geocodeStreet(streetName) {
   const est = await getEstateCenter();
-  const b = await geocode(`${streetName}, Sitari Country Estate, Somerset West`, est);
+  const b = await geocode(`${streetName}, Sitari Country Estate, Macassar, Cape Town`, est);
   return b && haversine(b, est) <= ESTATE_RADIUS_M ? { lat: b.lat, lng: b.lng } : null;
 }
 
