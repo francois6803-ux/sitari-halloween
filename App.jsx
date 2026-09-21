@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import GMap from './GMap';
 import HouseForm from './HouseForm';
 import Admin, { EVENTS } from './Admin';
-import { geocodeHouse, geocodeStreet } from '../lib/maps';
+import { geocodeHouse, geocodeStreet, setEstateCenter } from '../lib/maps';
 
 const PUB = 'id,street_id,house_number,lat,lng,participation,start_time,end_time,message';
 const hhmm = t => (t ? String(t).slice(0, 5) : '');
@@ -29,6 +29,7 @@ export default function App() {
   const [toastMsg, setToastMsg] = useState('');
   const [loaded, setLoaded] = useState(false);
   const intent = useRef(null);
+  const centered = useRef(false);
   const tt = useRef();
   const toast = useCallback(m => { setToastMsg(m); clearTimeout(tt.current); tt.current = setTimeout(() => setToastMsg(''), 3600); }, []);
 
@@ -38,7 +39,7 @@ export default function App() {
 
   const loadPublic = useCallback(async () => {
     const [s, h, e] = await Promise.all([
-      supabase.from('streets').select('id,name').order('name'),
+      supabase.from('streets').select('id,name,lat,lng').order('name'),
       supabase.from('houses').select(PUB).eq('status', 'approved'),
       supabase.from('event_settings').select('stage').eq('id', 1).maybeSingle()
     ]);
@@ -66,6 +67,14 @@ export default function App() {
     });
     return () => { clearInterval(iv); sub.subscription.unsubscribe(); };
   }, [loadPublic, loadMine]);
+
+  useEffect(() => {
+    const a = streets.filter(s => s.lat != null);
+    if (centered.current || !a.length) return;
+    centered.current = true;
+    const c = { lat: a.reduce((t, s) => t + s.lat, 0) / a.length, lng: a.reduce((t, s) => t + s.lng, 0) / a.length };
+    setEstateCenter(c); setFocus({ ...c, zoom: 16, k: Date.now() });
+  }, [streets]);
 
   const ghost = mine && mine.status === 'pending' ? { id: mine.id, lat: mine.lat, lng: mine.lng } : null;
   const selHouse = useMemo(() => houses.find(h => h.id === sel) || (mine && mine.id === sel ? mine : null), [sel, houses, mine]);
@@ -102,14 +111,15 @@ export default function App() {
       if (hs.length) {
         const b = new window.google.maps.LatLngBounds(); hs.forEach(h => b.extend({ lat: h.lat, lng: h.lng })); setFocus({ bounds: b, k: Date.now() });
       } else {
-        const g = await geocodeStreet(r.s.name);
+        const g = r.s.lat != null ? { lat: r.s.lat, lng: r.s.lng } : await geocodeStreet(r.s.name);
         if (g) setFocus({ lat: g.lat, lng: g.lng, zoom: 17, k: Date.now() });
         toast(`No pumpkins on ${r.s.name} yet.`);
       }
     } else if (r.h) { setSel(r.h.id); }
     else {
       const g = await geocodeHouse(r.n, r.s.name);
-      setFocus({ lat: g.lat, lng: g.lng, zoom: 19, k: Date.now() });
+      const at = !g.found && r.s.lat != null ? { lat: r.s.lat, lng: r.s.lng, zoom: 18 } : { lat: g.lat, lng: g.lng, zoom: 19 };
+      setFocus({ ...at, k: Date.now() });
       toast(`No pumpkin at ${r.n} ${r.s.name} yet.`);
     }
   }

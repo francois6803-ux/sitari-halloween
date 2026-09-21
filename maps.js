@@ -73,3 +73,6 @@ export async function geocodeStreet(streetName) {
   const b = await geocode(`${streetName}, Sitari Country Estate, Somerset West`, est);
   return b && haversine(b, est) <= ESTATE_RADIUS_M ? { lat: b.lat, lng: b.lng } : null;
 }
+
+/** Once admins have pinned the streets, their centre becomes the estate centre. */
+export function setEstateCenter(c) { estatePromise = Promise.resolve(c); }

@@ -32,7 +32,9 @@ export default function HouseForm({ user, streets, house = null, admin = false, 
     const n = parseInt(f.number, 10);
     if (!f.street_id || !(n > 0)) { E('Address not found', "We couldn't find that address. Please check the house number and street."); return false; }
     setBusy(true);
-    const r = await geocodeHouse(n, streetName(f.street_id));
+    let r = await geocodeHouse(n, streetName(f.street_id));
+    const anchor = streets.find(s => s.id === f.street_id);
+    if (!r.found && anchor && anchor.lat != null) r = { lat: anchor.lat, lng: anchor.lng, found: false };
     setBusy(false);
     setManual(!r.found);
     setF(o => ({ ...o, number: String(n), lat: r.lat, lng: r.lng, confirmed: false }));

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import HouseForm from './HouseForm';
 import GMap from './GMap';
+import { getEstateCenter } from '../lib/maps';
 
 export const EVENTS = {
   preparing: ['🕸️ Preparing', 'Map is visible, registration is closed.'],
@@ -25,6 +26,7 @@ export default function Admin({ streets, stage, onStage, onClose, onChanged, toa
   const [q, setQ] = useState('');
   const [view, setView] = useState(null); // {mode:'edit'|'view', house, note}
   const [confirm, setConfirm] = useState(null);
+  const [streetEdit, setStreetEdit] = useState(null);
   const sName = id => streets.find(s => s.id === id)?.name || id;
   const addr = h => `${h.house_number} ${sName(h.street_id)}`;
 
@@ -64,7 +66,7 @@ export default function Admin({ streets, stage, onStage, onClose, onChanged, toa
   const list = houses.filter(h => (filter === 'all' || h.status === filter) && (!q || addr(h).toLowerCase().includes(q.toLowerCase())));
   const per = streets.map(s => [s.name, houses.filter(h => h.street_id === s.id && (h.status === 'approved' || h.status === 'pending')).length]).filter(p => p[1] > 0);
   const mx = Math.max(1, ...per.map(p => p[1]));
-  const tabs = [['dash', 'Dashboard'], ['regs', `Registrations (${houses.length})`], ['reps', `Reports (${st.rep})`], ['evt', 'Event']];
+  const tabs = [['dash', 'Dashboard'], ['regs', `Registrations (${houses.length})`], ['reps', `Reports (${st.rep})`], ['streets', 'Streets'], ['evt', 'Event']];
 
   return (
     <div id="admin">
@@ -128,6 +130,19 @@ export default function Admin({ streets, stage, onStage, onClose, onChanged, toa
           );
         }) : <div className="panel"><p>No reports. 🎉</p></div>)}
 
+        {tab === 'streets' && (<>
+          <p className="lead">Drop one pin per street so residents land in the right place when Google doesn't know Sitari's addresses. Pan the map to the street, tap it, then save.</p>
+          {streets.map(s => (
+            <div className="panel" key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 8, padding: 12 }}>
+              <b>{s.name}</b>
+              <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {s.lat != null ? <span className="badge b-good">📍 Pinned</span> : <span className="badge b-warn">Not set</span>}
+                <button className="btn sec sm" onClick={() => setStreetEdit(s)}>{s.lat != null ? 'MOVE' : 'SET'}</button>
+              </span>
+            </div>
+          ))}
+        </>)}
+
         {tab === 'evt' && (<>
           <p className="lead">Switch the event stage to change what residents see. It takes effect immediately.</p>
           {Object.keys(EVENTS).map(k => <button key={k} className={'evt' + (stage === k ? ' on' : '')} onClick={() => changeStage(k)}><b>{EVENTS[k][0]}</b><span>{EVENTS[k][1]}</span></button>)}
@@ -159,6 +174,15 @@ export default function Admin({ streets, stage, onStage, onClose, onChanged, toa
         </div>
       )}
 
+      {streetEdit && (
+        <div id="modal" onClick={e => { if (e.target.id === 'modal') setStreetEdit(null); }}>
+          <div className="sheet wide" role="dialog" aria-modal="true">
+            <StreetPinner street={streetEdit} streets={streets} toast={toast} onClose={() => setStreetEdit(null)}
+              onSaved={async () => { setStreetEdit(null); await onChanged(); toast('Street location saved.'); }} />
+          </div>
+        </div>
+      )}
+
       {confirm && (
         <div id="dialog" onClick={e => { if (e.target.id === 'dialog') setConfirm(null); }}>
           <div className="dlg" role="alertdialog" aria-modal="true">
@@ -172,4 +196,31 @@ export default function Admin({ streets, stage, onStage, onClose, onChanged, toa
       )}
     </div>
   );
+}
+
+function StreetPinner({ street, streets, onSaved, onClose, toast }) {
+  const [pin, setPin] = useState(street.lat != null ? { lat: street.lat, lng: street.lng } : null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (pin) return;
+    (async () => {
+      const a = streets.filter(x => x.lat != null);
+      if (a.length) setPin({ lat: a.reduce((t, x) => t + x.lat, 0) / a.length, lng: a.reduce((t, x) => t + x.lng, 0) / a.length });
+      else setPin(await getEstateCenter());
+    })();
+    // eslint-disable-next-line
+  }, []);
+  async function save() {
+    setBusy(true);
+    const { error } = await supabase.from('streets').update({ lat: pin.lat, lng: pin.lng }).eq('id', street.id);
+    setBusy(false);
+    if (error) toast('Could not save: ' + error.message); else onSaved();
+  }
+  return (<>
+    <div className="sh-top"><span className="eyebrow">📍 Street location</span><button className="x" onClick={onClose} aria-label="Close">✕</button></div>
+    <h2>{street.name}</h2>
+    <p className="lead">Pan and zoom to this street, then tap the map (or drag the pumpkin) to drop the pin in the middle of it.</p>
+    <div className="mini" style={{ height: 360 }}>{pin && <GMap mode="pick" pin={pin} onPin={setPin} zoom={17} />}</div>
+    <div className="stack row"><button className="btn pri" disabled={!pin || busy} onClick={save}>{busy ? 'SAVING…' : 'SAVE STREET LOCATION'}</button><button className="btn ghost" onClick={onClose}>CANCEL</button></div>
+  </>);
 }
