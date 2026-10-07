@@ -209,6 +209,7 @@ export default function App() {
             : <button className="btn cta" disabled>{stage === 'preparing' ? '🕸️ REGISTRATION OPENS SOON' : '👻 REGISTRATION CLOSED'}</button>}
           {activeMine && <button className="btn sec" onClick={() => setSheet('my')}><span className={'dot' + (mine.status === 'approved' ? ' g' : '')} />MY HOUSE</button>}
         </div>
+        <div className="banner" style={{ textAlign: 'center' }}>Gentlemen, your ticket to the party is a pack of nappies!</div>
       </div>
 
       {menu && (
