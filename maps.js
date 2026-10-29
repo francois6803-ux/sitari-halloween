@@ -6,7 +6,6 @@ export function loadMaps() {
   if (window.google && window.google.maps && window.google.maps.importLibrary) return Promise.resolve(window.google.maps);
   if (!HAS_KEY) return Promise.reject(new Error('no-key'));
   if (loader) return loader;
-  window.gm_authFailure = () => { window.__gmAuthFail = true; window.dispatchEvent(new Event('gm-auth-fail')); };
   loader = new Promise((resolve, reject) => {
     const s = document.createElement('script');
     s.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY}&loading=async&v=weekly`;
@@ -25,56 +24,31 @@ export function haversine(a, b) {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-async function geocode(address, bias) {
+async function geocode(address) {
   try {
     await loadMaps();
     const { Geocoder } = await window.google.maps.importLibrary('geocoding');
-    const req = { address, region: 'ZA', componentRestrictions: { country: 'ZA' } };
-    if (bias) { const d = 0.03; req.bounds = { south: bias.lat - d, north: bias.lat + d, west: bias.lng - d, east: bias.lng + d }; }
-    const res = await new Geocoder().geocode(req);
+    const res = await new Geocoder().geocode({ address, region: 'ZA' });
     const r = res.results && res.results[0];
     if (!r) return null;
     return { lat: r.geometry.location.lat(), lng: r.geometry.location.lng(), partial: !!r.partial_match };
   } catch (e) {
-    window.__geoErr = (e && (e.code || e.message)) || 'unknown';
     return null;
   }
 }
 
-// Approximate Macassar area, only used if Google cannot find the estate at all.
-const FALLBACK = { lat: -34.06, lng: 18.77 };
-
 let estatePromise;
 export function getEstateCenter() {
   if (!estatePromise) {
-    estatePromise = (async () => {
-      const tries = ['Sitari Country Estate, Macassar, Cape Town, South Africa', 'Sitari Country Estate Main Gate, R102, Macassar, Cape Town, South Africa'];
-      for (const q of tries) { const r = await geocode(q); if (r && !r.partial) return r; }
-      const any = await geocode(tries[0]);
-      return any || FALLBACK;
-    })();
+    estatePromise = geocode('Sitari Country Estate, Somerset West, South Africa').then(r => r || { lat: -34.0, lng: 18.85 });
   }
   return estatePromise;
 }
-export const ESTATE_RADIUS_M = 3500;
+export const ESTATE_RADIUS_M = 2500;
 
-/** Returns {lat,lng,found}. found=true only when Google pinned the exact house; otherwise the pin lands on the street (or the estate) and the resident drags it. */
 export async function geocodeHouse(number, streetName) {
   const est = await getEstateCenter();
-  const near = r => r && haversine(r, est) <= ESTATE_RADIUS_M;
-  const a = await geocode(`${number} ${streetName}, Sitari Country Estate, Macassar, Cape Town`, est);
-  if (near(a) && !a.partial) return { lat: a.lat, lng: a.lng, found: true };
-  const b = await geocode(`${streetName}, Sitari Country Estate, Macassar, Cape Town`, est);
-  if (near(b)) return { lat: b.lat, lng: b.lng, found: false };
-  if (near(a)) return { lat: a.lat, lng: a.lng, found: false };
+  const r = await geocode(`${number} ${streetName}, Sitari Country Estate, Somerset West, South Africa`);
+  if (r && !r.partial && haversine(r, est) <= ESTATE_RADIUS_M) return { ...r, found: true };
   return { lat: est.lat, lng: est.lng, found: false };
 }
-
-export async function geocodeStreet(streetName) {
-  const est = await getEstateCenter();
-  const b = await geocode(`${streetName}, Sitari Country Estate, Macassar, Cape Town`, est);
-  return b && haversine(b, est) <= ESTATE_RADIUS_M ? { lat: b.lat, lng: b.lng } : null;
-}
-
-/** Once admins have pinned the streets, their centre becomes the estate centre. */
-export function setEstateCenter(c) { estatePromise = Promise.resolve(c); }

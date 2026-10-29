@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabase';
 import GMap from './GMap';
 import HouseForm from './HouseForm';
 import Admin, { EVENTS } from './Admin';
-import { geocodeHouse, geocodeStreet, setEstateCenter } from '../lib/maps';
 
 const PUB = 'id,street_id,house_number,lat,lng,participation,start_time,end_time,message';
 const hhmm = t => (t ? String(t).slice(0, 5) : '');
@@ -29,7 +28,6 @@ export default function App() {
   const [toastMsg, setToastMsg] = useState('');
   const [loaded, setLoaded] = useState(false);
   const intent = useRef(null);
-  const centered = useRef(false);
   const tt = useRef();
   const toast = useCallback(m => { setToastMsg(m); clearTimeout(tt.current); tt.current = setTimeout(() => setToastMsg(''), 3600); }, []);
 
@@ -39,7 +37,7 @@ export default function App() {
 
   const loadPublic = useCallback(async () => {
     const [s, h, e] = await Promise.all([
-      supabase.from('streets').select('id,name,lat,lng').order('name'),
+      supabase.from('streets').select('id,name').order('name'),
       supabase.from('houses').select(PUB).eq('status', 'approved'),
       supabase.from('event_settings').select('stage').eq('id', 1).maybeSingle()
     ]);
@@ -67,14 +65,6 @@ export default function App() {
     });
     return () => { clearInterval(iv); sub.subscription.unsubscribe(); };
   }, [loadPublic, loadMine]);
-
-  useEffect(() => {
-    const a = streets.filter(s => s.lat != null);
-    if (centered.current || !a.length) return;
-    centered.current = true;
-    const c = { lat: a.reduce((t, s) => t + s.lat, 0) / a.length, lng: a.reduce((t, s) => t + s.lng, 0) / a.length };
-    setEstateCenter(c); setFocus({ ...c, zoom: 16, k: Date.now() });
-  }, [streets]);
 
   const ghost = mine && mine.status === 'pending' ? { id: mine.id, lat: mine.lat, lng: mine.lng } : null;
   const selHouse = useMemo(() => houses.find(h => h.id === sel) || (mine && mine.id === sel ? mine : null), [sel, houses, mine]);
@@ -104,24 +94,13 @@ export default function App() {
     if (num == null) return ss.map(s => ({ t: 'street', s, c: houses.filter(h => h.street_id === s.id).length }));
     return ss.map(s => ({ t: 'house', s, n: num, h: houses.find(h => h.street_id === s.id && h.house_number === num) }));
   }, [q, streets, houses]);
-  async function go(r) {
+  function go(r) {
     setQ('');
     if (r.t === 'street') {
       const hs = houses.filter(h => h.street_id === r.s.id);
-      if (hs.length) {
-        const b = new window.google.maps.LatLngBounds(); hs.forEach(h => b.extend({ lat: h.lat, lng: h.lng })); setFocus({ bounds: b, k: Date.now() });
-      } else {
-        const g = r.s.lat != null ? { lat: r.s.lat, lng: r.s.lng } : await geocodeStreet(r.s.name);
-        if (g) setFocus({ lat: g.lat, lng: g.lng, zoom: 17, k: Date.now() });
-        toast(`No pumpkins on ${r.s.name} yet.`);
-      }
-    } else if (r.h) { setSel(r.h.id); }
-    else {
-      const g = await geocodeHouse(r.n, r.s.name);
-      const at = !g.found && r.s.lat != null ? { lat: r.s.lat, lng: r.s.lng, zoom: 18 } : { lat: g.lat, lng: g.lng, zoom: 19 };
-      setFocus({ ...at, k: Date.now() });
-      toast(`No pumpkin at ${r.n} ${r.s.name} yet.`);
-    }
+      if (!hs.length) { toast(`No pumpkins on ${r.s.name} yet.`); return; }
+      const b = new window.google.maps.LatLngBounds(); hs.forEach(h => b.extend({ lat: h.lat, lng: h.lng })); setFocus({ bounds: b, k: Date.now() });
+    } else if (r.h) { setSel(r.h.id); } else toast(`No pumpkin at ${r.n} ${r.s.name} yet.`);
   }
 
   /* actions */
@@ -152,8 +131,6 @@ export default function App() {
     <div id="app" className={selHouse ? 'card-open' : ''}>
       <div id="sky" />
       <GMap houses={houses} ghost={ghost} selectedId={sel} onSelect={setSel} focus={focus} zoom={16} />
-      <Ambience />
-      <Splash />
 
       <div id="top" className="ui">
         <div className="title">SITARI</div>
@@ -188,7 +165,7 @@ export default function App() {
           <div className="addr">{addr(selHouse)}</div>
           <div className="status">{selIsGhost ? '🟡 Pending approval' : stage === 'finished' ? '👻 Halloween 2026 has finished' : partLabel(selHouse.participation)}</div>
           {selIsGhost ? <div className="meta">Only you can see this pumpkin until an administrator approves it.</div>
-            : (selHouse.start_time ? <div className="meta">🕔 {hhmm(selHouse.start_time)} – {hhmm(selHouse.end_time)}</div> : null)}
+            : <div className="meta">🕔 {selHouse.start_time ? `${hhmm(selHouse.start_time)} – ${hhmm(selHouse.end_time)}` : 'Hours not specified.'}</div>}
           {selHouse.message && !selIsGhost && <div className="msg">“{selHouse.message}”</div>}
           <div className="acts">
             {selIsGhost ? <button className="btn pri" onClick={() => setSheet('my')}>MY HOUSE</button>
@@ -280,8 +257,8 @@ function MyHouse({ mine, addr, regOpen, onClose, onEdit, onRegister, onShow, onR
     <h2>{addr}</h2><div className="status" style={{ margin: '6px 0 10px' }}>{STATUS[mine.status]}</div>
     {mine.status === 'rejected' && <div className="note">An administrator couldn't approve this registration. You can edit it and it will be reviewed again.</div>}
     <div className="kv"><span>Visitors</span><span>{partLabel(mine.participation)}</span></div>
-    {mine.start_time && <div className="kv"><span>Hours</span><span>{hhmm(mine.start_time)} – {hhmm(mine.end_time)}</span></div>}
-    {mine.message && <div className="kv"><span>Message</span><span>{mine.message}</span></div>}
+    <div className="kv"><span>Hours</span><span>{mine.start_time ? `${hhmm(mine.start_time)} – ${hhmm(mine.end_time)}` : 'Hours not specified.'}</span></div>
+    <div className="kv"><span>Message</span><span>{mine.message || '—'}</span></div>
     {confirm ? (<div className="err warn"><b>Remove your Halloween house?</b>Your pumpkin will disappear from the public map.
       <div className="stack"><button className="btn sec" onClick={() => setConfirm(false)}>KEEP MY PUMPKIN</button><button className="btn danger" onClick={onRemove}>REMOVE HOUSE</button></div></div>) : (
       <div className="stack">
@@ -304,50 +281,4 @@ function Report({ house, addr, onClose, onSend }) {
     <textarea id="rn" className="inp" maxLength={200} value={note} onChange={e => setNote(e.target.value)} />
     <div className="stack"><button className="btn pri" onClick={() => onSend(house, reason, note.trim())}>SEND REPORT</button><button className="btn ghost" onClick={onClose}>CANCEL</button></div>
   </>);
-}
-
-const BAT = '<svg viewBox="0 0 40 24"><path d="M20 12C14 2 6 2 0 8C5 8 7 10 9 14C11 11 14 11 16 14L20 20L24 14C26 11 29 11 31 14C33 10 35 8 40 8C34 2 26 2 20 12Z" fill="#07030f" stroke="#7b5cff" stroke-opacity=".5"/></svg>';
-
-/* Spooky atmosphere layered over the map. Never blocks taps. */
-function Ambience() {
-  const bats = useRef(null);
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const spawn = () => {
-      if (!bats.current) return;
-      const b = document.createElement('div'), d = 10 + Math.random() * 7;
-      b.className = 'bat';
-      b.style.cssText = `top:${(8 + Math.random() * 30).toFixed(0)}%;width:${(26 + Math.random() * 22).toFixed(0)}px;--dy:${(Math.random() * 140 - 70) | 0}px;animation-duration:${d}s`;
-      b.innerHTML = BAT; bats.current.appendChild(b); setTimeout(() => b.remove(), d * 1000 + 300);
-    };
-    const t0 = setTimeout(spawn, 3500), iv = setInterval(spawn, 12000);
-    return () => { clearTimeout(t0); clearInterval(iv); };
-  }, []);
-  return (
-    <>
-      <div className="vignette" />
-      <div className="fog" style={{ left: '-10%', top: '55%', width: '70%', height: '30%' }} />
-      <div className="fog" style={{ right: '-15%', top: '22%', width: '60%', height: '28%', animationDelay: '-12s' }} />
-      <div className="embers">{Array.from({ length: 14 }, (_, i) => (
-        <i key={i} className="ember" style={{ left: `${(i * 37) % 100}%`, animationDuration: `${9 + ((i * 7) % 9)}s`, animationDelay: `${(i * 5) % 10}s`, '--dx': `${((i * 53) % 120) - 60}px` }} />
-      ))}</div>
-      <div className="bats" ref={bats} />
-    </>
-  );
-}
-
-function Splash() {
-  const [phase, setPhase] = useState('off');
-  useEffect(() => {
-    try { if (sessionStorage.getItem('sitari-splash')) return; sessionStorage.setItem('sitari-splash', '1'); } catch (e) {}
-    setPhase('on');
-    const a = setTimeout(() => setPhase('out'), 2400), b = setTimeout(() => setPhase('off'), 3300);
-    return () => { clearTimeout(a); clearTimeout(b); };
-  }, []);
-  if (phase === 'off') return null;
-  return (
-    <div id="splash" className={phase === 'out' ? 'out' : ''} onClick={() => setPhase('off')}>
-      <div className="sp">🎃</div><h1>SITARI</h1><h2>HALLOWEEN 2026</h2><p>The neighbourhood is alive.</p>
-    </div>
-  );
 }
