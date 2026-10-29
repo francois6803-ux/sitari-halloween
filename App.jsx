@@ -28,10 +28,17 @@ export default function App() {
   const [q, setQ] = useState('');
   const [toastMsg, setToastMsg] = useState('');
   const [loaded, setLoaded] = useState(false);
+  const [clip, setClip] = useState(false);
+  const clipRef = useRef(null);
   const intent = useRef(null);
   const centered = useRef(false);
   const tt = useRef();
   const toast = useCallback(m => { setToastMsg(m); clearTimeout(tt.current); tt.current = setTimeout(() => setToastMsg(''), 3600); }, []);
+  useEffect(() => { const t = setTimeout(() => setClip(true), 5000); return () => clearTimeout(t); }, []);
+  useEffect(() => {
+    const v = clipRef.current; if (!clip || !v) return;
+    v.play().catch(() => { v.muted = true; v.play().catch(() => setClip(false)); });
+  }, [clip]);
 
   const sName = id => streets.find(s => s.id === id)?.name || id;
   const addr = h => `${h.house_number} ${sName(h.street_id)}`;
@@ -241,6 +248,11 @@ export default function App() {
       )}
 
       {admin && isAdmin && <Admin streets={streets} stage={stage} onStage={setStage} toast={toast} onChanged={loadPublic} onClose={() => { setAdmin(false); loadPublic(); }} />}
+      {clip && (
+        <div onClick={() => setClip(false)} style={{ position: 'absolute', inset: 0, zIndex: 70, background: '#000', display: 'grid', placeItems: 'center' }}>
+          <video ref={clipRef} src="/clip.mp4" playsInline onEnded={() => setClip(false)} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+        </div>
+      )}
       <div id="toast" role="status" aria-live="polite" className={toastMsg ? 'show' : ''}>{toastMsg}</div>
     </div>
   );
