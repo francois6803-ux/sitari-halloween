@@ -329,9 +329,6 @@ function Ambience() {
       <div className="vignette" />
       <div className="fog" style={{ left: '-10%', top: '55%', width: '70%', height: '30%' }} />
       <div className="fog" style={{ right: '-15%', top: '22%', width: '60%', height: '28%', animationDelay: '-12s' }} />
-      <div className="embers">{Array.from({ length: 14 }, (_, i) => (
-        <i key={i} className="ember" style={{ left: `${(i * 37) % 100}%`, animationDuration: `${9 + ((i * 7) % 9)}s`, animationDelay: `${(i * 5) % 10}s`, '--dx': `${((i * 53) % 120) - 60}px` }} />
-      ))}</div>
       <div className="bats" ref={bats} />
     </>
   );
